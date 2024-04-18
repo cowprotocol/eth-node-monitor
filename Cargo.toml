@@ -1,0 +1,33 @@
+[package]
+name = "eth-node-monitor"
+version = "0.1.0"
+edition = "2021"
+authors = ["CoW Protocol Developers"]
+license = "GPL-3.0"
+publish = false
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+alloy = { git = "https://github.com/alloy-rs/alloy", rev = "bfd0fda", features = [
+    "network",
+    "providers",
+    "provider-http",
+    "rpc-client",
+    "rpc-types-eth",
+] }
+axum = { version = "0.7.5", features = ["macros"] }
+axum-tracing-opentelemetry = "0.18.0"
+clap = { version = "4.5.4", features = ["derive"] }
+eyre = "0.6.12"
+futures-util = "0.3.30"
+opentelemetry = "0.22.0"
+opentelemetry-otlp = { version = "0.15.0", features = ["grpc-tonic"] }
+opentelemetry_sdk = { version = "0.22.1", features = ["rt-tokio"] }
+serde = { version = "1.0.197", features = ["derive"] }
+serde_json = "1.0.116"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync"] }
+tracing = { version = "0.1.40", features = ["attributes"] }
+tracing-opentelemetry = "0.23.0"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+warp = "0.3.7"
