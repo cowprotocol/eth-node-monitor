@@ -25,7 +25,7 @@ ARG FEATURES=""
 ENV FEATURES $FEATURES
 
 # Install system dependencies
-RUN apt-get update && apt-get -y upgrade && apt-get install -y libclang-dev pkg-config
+RUN apt-get update && apt-get -y upgrade && apt-get install -y libclang-dev libssl-dev pkg-config
 
 # Builds dependencies
 RUN cargo chef cook --profile $BUILD_PROFILE --features "$FEATURES" --recipe-path recipe.json
@@ -48,5 +48,5 @@ COPY --from=builder /app/eth-node-monitor /usr/local/bin
 # Copy licenses
 COPY LICENSE-* ./
 
-EXPOSE 3000
+EXPOSE 8080
 ENTRYPOINT ["/usr/local/bin/eth-node-monitor"]
