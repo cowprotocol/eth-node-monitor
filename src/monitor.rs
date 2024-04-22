@@ -74,8 +74,7 @@ impl AppState {
             block.hash = block.header.hash.unwrap_or_default().to_string(),
             "Updating to latest block"
         );
-        let mut state = app_state.lock().unwrap();
-        state.latest_block = Some(block);
+        app_state.lock().unwrap().latest_block = Some(block);
     }
 
     #[tracing::instrument(skip(self))]
