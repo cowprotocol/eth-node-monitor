@@ -4,10 +4,7 @@ use std::{
 };
 
 use alloy::{
-    network::Network,
-    providers::Provider,
-    rpc::types::eth::{Block, BlockNumberOrTag},
-    transports::Transport,
+    network::Network, primitives::FixedBytes, providers::Provider, rpc::types::eth::{Block, BlockNumberOrTag}, transports::Transport
 };
 use serde::{Deserialize, Serialize};
 
