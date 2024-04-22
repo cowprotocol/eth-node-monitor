@@ -29,7 +29,10 @@ pub async fn health_handler(
     if state.is_healthy() {
         healthy_response()
     } else {
-        unhealthy_response("block is stale or intentionally failing", &state.latest_block)
+        unhealthy_response(
+            "block is stale or intentionally failing",
+            &state.latest_block,
+        )
     }
 }
 

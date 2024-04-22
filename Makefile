@@ -58,17 +58,6 @@ build-%:
 	RUSTFLAGS="-C link-arg=-lgcc -Clink-arg=-static-libgcc" \
 		cross build --target $* --features "$(FEATURES)" --profile "$(PROFILE)"
 
-# Unfortunately we can't easily use cross to build for Darwin because of licensing issues.
-# If we wanted to, we would need to build a custom Docker image with the SDK available.
-#
-# Note: You must set `SDKROOT` and `MACOSX_DEPLOYMENT_TARGET`. These can be found using `xcrun`.
-#
-# `SDKROOT=$(xcrun -sdk macosx --show-sdk-path) MACOSX_DEPLOYMENT_TARGET=$(xcrun -sdk macosx --show-sdk-platform-version)`
-build-x86_64-apple-darwin:
-	$(MAKE) build-native-x86_64-apple-darwin
-build-aarch64-apple-darwin:
-	$(MAKE) build-native-aarch64-apple-darwin
-
 # Create a `.tar.gz` containing a binary for a specific target.
 define tarball_release_binary
 	cp $(BUILD_PATH)/$(1)/$(PROFILE)/$(2) $(BIN_DIR)/$(2)
