@@ -114,7 +114,7 @@ async fn main() -> Result<()> {
     let mut stream = sub.into_stream();
 
     while let Some(block) = stream.next().await {
-        monitor::AppState::poll_and_update_block(block, http_provider.clone(), app_state.clone())
+        monitor::AppState::poll_and_update_block(block, &http_provider, app_state.clone())
             .await;
     }
 

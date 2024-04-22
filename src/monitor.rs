@@ -40,7 +40,7 @@ impl AppState {
         N: Network,
     >(
         block: Block,
-        provider: P,
+        provider: &P,
         app_state: Arc<Mutex<AppState>>,
     ) {
         // Before updating the latest block, check to see if it is retrievable from the
