@@ -58,20 +58,28 @@ impl AppState {
             .unwrap();
 
         match http_block {
-            Some(blk) => {
-                if block.header.hash != blk.header.hash {
-                    tracing::error!("Block hash mismatch between HTTP and WS providers");
+            Some(ref blk) => {
+                let ws_hash = block.header.hash.unwrap_or_default();
+                let http_hash = blk.header.hash.unwrap_or_default();
+                if ws_hash != http_hash && ws_hash != FixedBytes::ZERO {
+                    tracing::error!(
+                        ws_block = ?block,
+                        http_block = ?http_block,
+                        "Block hash mismatch between HTTP and WS providers"
+                    );
+                    return;
                 }
             }
             None => {
                 tracing::error!("Block not found in HTTP provider");
+                return;
             }
         }
 
         tracing::debug!(
-            block.number = block.header.number.map(|num| num.to::<u64>()),
-            block.timestamp = block.header.timestamp.to::<u64>(),
-            block.hash = block.header.hash.unwrap_or_default().to_string(),
+            block.number = ?block.header.number,
+            block.timestamp = ?block.header.timestamp,
+            block.hash = ?block.header.hash,
             "Updating to latest block"
         );
         app_state.lock().unwrap().latest_block = Some(block);
