@@ -1,5 +1,3 @@
-# Publishes the Docker image.
-
 name: docker
 
 on:
@@ -8,37 +6,47 @@ on:
     tags:
       - v*
 
-env:
-  REPO_NAME: ${{ github.repository_owner }}/cowprotocol
-  IMAGE_NAME: ${{ github.repository_owner }}/cowprotocol
-  CARGO_TERM_COLOR: always
-  DOCKER_IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/eth-node-monitor
-  DOCKER_USERNAME: ${{ github.actor }}
-
 jobs:
-  build:
-    name: build and push
-    runs-on: ubuntu-20.04
+  build-and-push-image:
+    runs-on: ubuntu-latest
     permissions:
-      packages: write
       contents: read
+      packages: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
         with:
-          cache-on-failure: true
-      - uses: taiki-e/install-action@cross
-      - name: Log in to Docker
-        run: |
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io --username ${DOCKER_USERNAME} --password-stdin
-      - name: Set up Docker builder
-        run: |
-          docker run --privileged --rm tonistiigi/binfmt --install amd64
-          docker buildx create --use --name cross-builder
-      - name: Build and push image, tag as "latest"
-        if: ${{ contains(github.event.ref, 'beta') }}
-        run: make PROFILE=maxperf docker-build-push-latest
-      - name: Build and push image
-        if: ${{ ! contains(github.event.ref, 'beta') }}
-        run: make PROFILE=maxperf docker-build-push
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Setup docker context for buildx
+        id: buildx-context
+        run: docker context create builders
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          endpoint: builders
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            COMMIT_SHA=${{ github.sha }}
+          platforms: linux/amd64,linux/arm64
