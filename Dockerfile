@@ -1,4 +1,4 @@
-FROM lukemathwalker/cargo-chef:latest-rust-1 AS chef
+FROM docker.io/lukemathwalker/cargo-chef:0.1.67-rust-1.78.0-bookworm AS chef
 WORKDIR /app
 
 LABEL org.opencontainers.image.source=https://github.com/cowprotocol/eth-node-monitor
@@ -39,7 +39,7 @@ RUN cargo build --profile $BUILD_PROFILE --features "$FEATURES" --locked
 RUN cp /app/target/$BUILD_PROFILE/eth-node-monitor /app/eth-node-monitor
 
 # Use Ubuntu as the release image
-FROM ubuntu AS runtime
+FROM docker.io/library/debian:bookworm-slim AS runtime
 WORKDIR /app
 
 # Copy eth-node-monitor over from the build stage
@@ -47,6 +47,12 @@ COPY --from=builder /app/eth-node-monitor /usr/local/bin
 
 # Copy licenses
 COPY LICENSE-* ./
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update \
+  && apt-get -y install libssl3 \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
 
 EXPOSE 8080
 ENTRYPOINT ["/usr/local/bin/eth-node-monitor"]
