@@ -38,7 +38,7 @@ RUN cargo build --profile $BUILD_PROFILE --features "$FEATURES" --locked
 # binary to a temporary location
 RUN cp /app/target/$BUILD_PROFILE/eth-node-monitor /app/eth-node-monitor
 
-# Use Ubuntu as the release image
+# Use Debian as the release image
 FROM docker.io/library/debian:bookworm-slim AS runtime
 WORKDIR /app
 
