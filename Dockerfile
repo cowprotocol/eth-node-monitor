@@ -1,4 +1,4 @@
-FROM docker.io/lukemathwalker/cargo-chef:0.1.67-rust-1.78.0-bookworm AS chef
+FROM docker.io/lukemathwalker/cargo-chef:0.1.67-rust-bookworm AS chef
 WORKDIR /app
 
 LABEL org.opencontainers.image.source=https://github.com/cowprotocol/eth-node-monitor
