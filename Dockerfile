@@ -50,7 +50,7 @@ COPY LICENSE-* ./
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update \
-  && apt-get -y install libssl3 \
+  && apt-get -y install libssl3 curl jq \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
