@@ -46,13 +46,20 @@ impl AppState {
         // If the block is found in the HTTP provider, check to see if the block hash
         // matches between the HTTP and WS providers. If the block hash does not match,
         // log an error and continue to the next block.
-        let http_block = provider
-            .get_block_by_number(
-                BlockNumberOrTag::Number(block.header.number.unwrap().to::<u64>()),
-                true,
-            )
+        let Some(number) = block.header.number else {
+            tracing::warn!("Received block header without a number");
+            return;
+        };
+        let http_block = match provider
+            .get_block_by_number(BlockNumberOrTag::Number(number.to::<u64>()), true)
             .await
-            .unwrap();
+        {
+            Ok(http_block) => http_block,
+            Err(err) => {
+                tracing::warn!(error = %err, "Failed to fetch block from HTTP provider");
+                return;
+            }
+        };
 
         match http_block {
             Some(ref blk) => {

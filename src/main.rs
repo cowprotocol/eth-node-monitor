@@ -15,8 +15,16 @@ use clap::Parser;
 use eyre::Result;
 use futures_util::StreamExt;
 use monitor::AppState;
-use std::sync::{Arc, Mutex};
+use std::{
+    sync::{Arc, Mutex},
+    time::Duration,
+};
+use tokio::signal::unix::{signal, SignalKind};
 use url::Url;
+
+const MIN_RECONNECT_DELAY: Duration = Duration::from_secs(1);
+const MAX_RECONNECT_DELAY: Duration = Duration::from_secs(10);
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Monitor an Ethereum node RPC endpoint
 #[derive(Parser, Debug)]
@@ -98,25 +106,71 @@ async fn main() -> Result<()> {
         .layer(OtelAxumLayer::default());
 
     // Spawn a task to run the API
-    tokio::spawn(async move {
-        let listener = tokio::net::TcpListener::bind(args.listen).await.unwrap();
-        axum::serve(listener, app).await.unwrap();
+    let api = tokio::spawn(async move {
+        let listener = tokio::net::TcpListener::bind(args.listen).await?;
+        axum::serve(listener, app).await?;
+        Ok::<_, eyre::Report>(())
     });
 
     // Create providers
     let http_provider = ProviderBuilder::new().on_reqwest_http(args.http_rpc_url)?;
     let ws = WsConnect::new(args.ws_rpc_url);
-    let ws_provider = ProviderBuilder::new().on_ws(ws).await?;
 
-    // Subscribe to new blocks
-    let sub = ws_provider.subscribe_blocks().await?;
+    // Follow new blocks, reconnecting whenever the node is unreachable or the
+    // subscription ends (e.g. while the node restarts). Exiting instead would
+    // make the container crash-loop whenever the node is down, while `/health`
+    // already reports the node as unhealthy once the last block goes stale.
+    let follow_blocks = async {
+        let mut reconnect_delay = MIN_RECONNECT_DELAY;
+        loop {
+            let result = async {
+                let (_ws_provider, sub) = tokio::time::timeout(CONNECT_TIMEOUT, async {
+                    let ws_provider = ProviderBuilder::new().on_ws(ws.clone()).await?;
+                    let sub = ws_provider.subscribe_blocks().await?;
+                    Ok::<_, eyre::Report>((ws_provider, sub))
+                })
+                .await??;
+                tracing::info!("Subscribed to new blocks");
 
-    let mut stream = sub.into_stream();
-
-    while let Some(block) = stream.next().await {
-        monitor::AppState::poll_and_update_block(block, &http_provider, app_state.clone())
+                let mut stream = sub.into_stream();
+                while let Some(block) = stream.next().await {
+                    reconnect_delay = MIN_RECONNECT_DELAY;
+                    monitor::AppState::poll_and_update_block(
+                        block,
+                        &http_provider,
+                        app_state.clone(),
+                    )
+                    .await;
+                }
+                Ok::<_, eyre::Report>(())
+            }
             .await;
-    }
 
-    Ok(())
+            match result {
+                Ok(()) => tracing::warn!("Block subscription ended"),
+                Err(err) => tracing::warn!(error = %err, "Failed to subscribe to new blocks"),
+            }
+            tracing::info!(delay = ?reconnect_delay, "Reconnecting");
+            tokio::time::sleep(reconnect_delay).await;
+            reconnect_delay = (reconnect_delay * 2).min(MAX_RECONNECT_DELAY);
+        }
+    };
+
+    let mut sigterm = signal(SignalKind::terminate())?;
+    tokio::select! {
+        _ = follow_blocks => Ok(()),
+        res = api => match res {
+            Ok(Ok(())) => Err(eyre::eyre!("API server stopped")),
+            Ok(Err(err)) => Err(err.wrap_err("API server failed")),
+            Err(err) => Err(eyre::Report::new(err).wrap_err("API server panicked")),
+        },
+        _ = sigterm.recv() => {
+            tracing::info!("Received SIGTERM, shutting down");
+            Ok(())
+        }
+        _ = tokio::signal::ctrl_c() => {
+            tracing::info!("Received SIGINT, shutting down");
+            Ok(())
+        }
+    }
 }
