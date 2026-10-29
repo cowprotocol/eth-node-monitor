@@ -103,7 +103,7 @@ impl AppState {
                     .duration_since(UNIX_EPOCH)
                     .unwrap()
                     .as_secs();
-                let stale_duration = current_timestamp - block_timestamp;
+                let stale_duration = current_timestamp.saturating_sub(block_timestamp);
                 tracing::debug!(
                     blocknumber = block.header.number.map(|num| num.to::<u64>()),
                     blocktimestamp = block_timestamp,
@@ -120,5 +120,49 @@ impl AppState {
             }
             None => false,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn now() -> u64 {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+    }
+
+    fn state_with_block_at(timestamp: u64) -> AppState {
+        let zero = |len: usize| format!("0x{}", "0".repeat(len));
+        let block = serde_json::from_value(serde_json::json!({
+            "parentHash": zero(64),
+            "sha3Uncles": zero(64),
+            "miner": zero(40),
+            "stateRoot": zero(64),
+            "transactionsRoot": zero(64),
+            "receiptsRoot": zero(64),
+            "logsBloom": zero(512),
+            "difficulty": "0x0",
+            "gasLimit": "0x0",
+            "gasUsed": "0x0",
+            "timestamp": format!("{timestamp:#x}"),
+            "extraData": "0x",
+        }))
+        .unwrap();
+        let mut state = AppState::new(4);
+        state.latest_block = Some(block);
+        state
+    }
+
+    #[test]
+    fn block_timestamped_ahead_of_local_clock_is_healthy() {
+        assert!(state_with_block_at(now() + 2).is_healthy());
+    }
+
+    #[test]
+    fn stale_block_is_unhealthy() {
+        assert!(!state_with_block_at(now() - 10).is_healthy());
     }
 }
